@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+#Google Drive Shortcuts
+datasets
+
 # Distribution / packaging
 .Python
 build/
@@ -166,6 +169,9 @@ cython_debug/
 outputs/
 exports/
 renders/
+pretrained_models/
+nerf/
+datasets/
 # tensorboard log files
 events.out.*
 
