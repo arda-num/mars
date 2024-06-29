@@ -40,9 +40,9 @@ VKITTI_Recon_Mars_Car_Depth_Semantic = MethodSpecification(
         pipeline=MarsPipelineConfig(
             datamanager=MarsDataManagerConfig(
                 dataparser=MarsVKittiDataParserConfig(
-                    use_car_latents=True,
+                    use_car_latents=False,
                     use_depth=True,
-                    use_semantic=True,
+                    use_semantic=False,
                     semantic_mask_classes=["Van", "Undefined"],
                     car_object_latents_path=Path(
                         "/DATA_EDS/liuty/ckpts/pretrain/car_nerf/vkitti/latents/latent_codes02.pt"
@@ -99,12 +99,12 @@ KITTI_Recon_Mars_Car_Depth = MethodSpecification(
             datamanager=MarsDataManagerConfig(
                 dataparser=MarsKittiDataParserConfig(
                     use_car_latents=True,
-                    use_depth=True,
+                    use_depth=False,
                     car_object_latents_path=Path(
-                        "/DATA_EDS/liuty/ckpts/pretrain/car_nerf/latent_codes_car_van_truck.pt"
+                        "/content/drive/MyDrive/MARS/mars/outputs/latent_codes_car_van_truck.pt"
                     ),
                     split_setting="reconstruction",
-                    car_nerf_state_dict_path=Path("/DATA_EDS/liuty/ckpts/pretrain/car_nerf/epoch_670.ckpt"),
+                    car_nerf_state_dict_path=Path("/content/drive/MyDrive/MARS/mars/outputs/epoch_670.ckpt"),
                     scale_factor=0.1,
                 ),
                 train_num_rays_per_batch=4096,
@@ -157,10 +157,10 @@ Ablation_no_depth_kitti = MethodSpecification(
                     use_car_latents=True,
                     use_depth=False,
                     car_object_latents_path=Path(
-                        "/DATA_EDS/liuty/ckpts/pretrain/car_nerf/latent_codes_car_van_truck.pt"
+                        "/content/drive/MyDrive/MARS/mars/outputs/latent_codes_car_van_truck.pt"
                     ),
                     split_setting="reconstruction",
-                    car_nerf_state_dict_path=Path("/DATA_EDS/liuty/ckpts/pretrain/car_nerf/epoch_670.ckpt"),
+                    car_nerf_state_dict_path=Path("/content/drive/MyDrive/MARS/mars/outputs/epoch_670.ckpt"),
                 ),
                 train_num_rays_per_batch=4096,
                 eval_num_rays_per_batch=4096,
@@ -211,10 +211,11 @@ KITTI_NVS_Mars_Car_Depth = MethodSpecification(
                     use_car_latents=True,
                     use_depth=True,
                     car_object_latents_path=Path(
-                        "/DATA_EDS/liuty/ckpts/pretrain/car_nerf/latent_codes_car_van_truck.pt"
+                        "/content/drive/MyDrive/MARS/mars/outputs/latent_codes_car_van_truck.pt"
                     ),
                     split_setting="nvs-75",
-                    car_nerf_state_dict_path=Path("/DATA_EDS/liuty/ckpts/pretrain/car_nerf/epoch_670.ckpt"),
+                    car_nerf_state_dict_path=Path("/content/drive/MyDrive/MARS/mars/outputs/epoch_670.ckpt"),
+                ),
                     scale_factor=0.1,
                 ),
                 train_num_rays_per_batch=4096,
@@ -317,10 +318,10 @@ VKITTI_NVS_Mars_Car_Depth = MethodSpecification(
                     use_car_latents=True,
                     use_depth=True,
                     car_object_latents_path=Path(
-                        "/DATA_EDS/liuty/ckpts/pretrain/car_nerf/vkitti/latents/latent_codes06.pt"
+                        "/content/drive/MyDrive/MARS/mars/outputs/kitti-recon-65-120/mars-kitti-car-depth-recon/latent_codes_car_van_truck.pt"
                     ),
-                    split_setting="nvs-75",
-                    car_nerf_state_dict_path=Path("/DATA_EDS/liuty/ckpts/pretrain/car_nerf/vkitti/epoch_805.ckpt"),
+                    split_setting="nvs-50",
+                    car_nerf_state_dict_path=Path("/content/drive/MyDrive/MARS/mars/outputs/kitti-recon-65-120/mars-kitti-car-depth-recon/epoch_670.ckpt"),
                 ),
                 train_num_rays_per_batch=4096,
                 eval_num_rays_per_batch=4096,
