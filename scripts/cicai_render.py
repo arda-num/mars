@@ -222,10 +222,11 @@ def _render_trajectory_video(
                     print(f'Modifying actor with id == {actor_id}')
                     # Simulate left turn
                     batch_obj_dyn = apply_left_turn(batch_obj_dyn, actor_id=actor_index, 
-                                                    angle_per_frame=-min(angle_per_frame*frame_number, 1.0),
-                                                    x_offset_per_frame=x_offset_per_frame*frame_number,
-                                                    y_offset_per_frame=y_offset_per_frame*frame_number,
-                                                    z_offset_per_frame=z_offset_per_frame*frame_number)
+                                                    angle=-angle_per_frame*frame_number,
+                                                    x_offset=x_offset_per_frame*frame_number,
+                                                    y_offset=y_offset_per_frame*frame_number,
+                                                    z_offset=z_offset_per_frame*frame_number,
+                                                    max_rotation= -1.0)
 
                 camera_ray_bundle.metadata["object_rays_info"] = batch_obj_dyn.reshape(
                     batch_obj_dyn.shape[0] * batch_obj_dyn.shape[1], batch_obj_dyn.shape[2] * batch_obj_dyn.shape[3]

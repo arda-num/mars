@@ -15,30 +15,95 @@ def get_actor_index(batch_obj_dyn, actor_id):
         return indices[2][0].item()  # Return the first matching index
     return -1
 
-def apply_left_turn(batch_obj_dyn, actor_id, angle_per_frame, x_offset_per_frame, y_offset_per_frame, z_offset_per_frame):
-    rotation = batch_obj_dyn[..., 3]
-    rotation[:, :, actor_id] += angle_per_frame
-    batch_obj_dyn[..., 3] = rotation
+def apply_left_turn(
+        batch_obj_dyn,
+        actor_id,
+        angle,
+        x_offset,
+        y_offset,
+        z_offset,
+        max_rotation,
+    ):
+    """
+    Apply a left turn to the actor with the given actor_id.
 
-    pose = batch_obj_dyn[..., :3]
-    pose[:, :, actor_id, 0] += x_offset_per_frame
-    pose[:, :, actor_id, 1] += y_offset_per_frame
-    pose[:, :, actor_id, 2] += z_offset_per_frame
-    batch_obj_dyn[..., :3] = pose
+    Args:
+        batch_obj_dyn (torch.Tensor): The batch object dynamics tensor.
+        actor_id (int): The actual ID of the actor.
+        angle (float): The angle to rotate.
+        x_offset (float): The total offset to apply along the x-axis.
+        y_offset (float): The total offset to apply along the y-axis.
+        z_offset (float): The total offset to apply along the z-axis.
+        max_rotation (float): The maximum rotation angle for the turn.
+        frames (int): The number of frames over which to apply the turn.
+    """
+
+    # Get current rotation of the actor
+    rotation = batch_obj_dyn[..., 3]
+
+    # Apply rotation and translation only if the current rotation is less than max_rotation
+    if abs(angle) < abs(max_rotation):
+        rotation[:, :, actor_id] += angle
+
+        pose = batch_obj_dyn[..., :3]
+        pose[:, :, actor_id, 0] += x_offset
+        pose[:, :, actor_id, 1] += y_offset
+        pose[:, :, actor_id, 2] += z_offset
+        batch_obj_dyn[..., :3] = pose
+    else:
+        rotation[:, :, actor_id] += max_rotation
+        batch_obj_dyn[..., 3] = rotation
+        # Stop x translation if maximum rotation is reached
+        pose = batch_obj_dyn[..., :3]
+        pose[:, :, actor_id, 1] += y_offset
+        pose[:, :, actor_id, 2] += z_offset
+        batch_obj_dyn[..., :3] = pose
 
     return batch_obj_dyn
 
 
-def apply_right_turn(batch_obj_dyn, actor_id, angle_per_frame, x_offset_per_frame, y_offset_per_frame, z_offset_per_frame):
-    rotation = batch_obj_dyn[..., 3]
-    rotation[:, :, actor_id] -= angle_per_frame
-    batch_obj_dyn[..., 3] = rotation
+def apply_right_turn(
+        batch_obj_dyn,
+        actor_id,
+        angle,
+        x_offset,
+        y_offset,
+        z_offset,
+        max_rotation
+    ):
+    """
+    Apply a right turn to the actor with the given actor_id.
 
-    pose = batch_obj_dyn[..., :3]
-    pose[:, :, actor_id, 0] += x_offset_per_frame
-    pose[:, :, actor_id, 1] += y_offset_per_frame
-    pose[:, :, actor_id, 2] += z_offset_per_frame
-    batch_obj_dyn[..., :3] = pose
+    Args:
+        batch_obj_dyn (torch.Tensor): The batch object dynamics tensor.
+        actor_id (int): The actual ID of the actor.
+        angle (float): The angle to rotate.
+        x_offset (float): The total offset to apply along the x-axis.
+        y_offset (float): The total offset to apply along the y-axis.
+        z_offset (float): The total offset to apply along the z-axis.
+        max_rotation (float): The maximum rotation angle for the turn.
+    """
+
+    # Get current rotation of the actor
+    rotation = batch_obj_dyn[..., 3]
+
+    # Apply rotation and translation only if the current rotation is less than max_rotation
+    if abs(angle) < abs(max_rotation):
+        rotation[:, :, actor_id] -= angle
+
+        pose = batch_obj_dyn[..., :3]
+        pose[:, :, actor_id, 0] += x_offset
+        pose[:, :, actor_id, 1] += y_offset
+        pose[:, :, actor_id, 2] -= z_offset
+        batch_obj_dyn[..., :3] = pose
+    else:
+        rotation[:, :, actor_id] -= max_rotation
+        batch_obj_dyn[..., 3] = rotation
+        # Stop x translation if maximum rotation is reached
+        pose = batch_obj_dyn[..., :3]
+        pose[:, :, actor_id, 1] += y_offset
+        pose[:, :, actor_id, 2] -= z_offset
+        batch_obj_dyn[..., :3] = pose
 
     return batch_obj_dyn
 
