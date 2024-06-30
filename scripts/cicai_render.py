@@ -39,6 +39,7 @@ from nerfstudio.utils.rich_utils import ItersPerSecColumn
 from nerfstudio.viewer.server.utils import three_js_perspective_camera_focal_length
 
 from safety_critical_manoeuvres import *
+from hard_coded_configs import configs
 
 CONSOLE = Console(width=120)
 
@@ -46,6 +47,17 @@ def modify_actor(*args, **kwargs):
         batch_obj_dyn = apply_left_turn(*args, **kwargs)
         """Add necessary modifications here"""
         return batch_obj_dyn
+        
+def load_modification_config(scene: str, actor_id: int, type: str):
+    angle = configs["scenes"][scene][actor_id][type]["angle"]
+    x_offset = configs["scenes"][scene][actor_id][type]["x_offset"]
+    y_offset = configs["scenes"][scene][actor_id][type]["y_offset"]
+    z_offset = configs["scenes"][scene][actor_id][type]["z_offset"]
+    max_rotation = configs["scenes"][scene][actor_id][type]["max_rotation"]
+    frames_per_maneuver = configs["scenes"][scene][actor_id][type]["frames_per_maneuver"]
+    
+    return angle/frames_per_maneuver, x_offset/frames_per_maneuver, y_offset/frames_per_maneuver, z_offset/frames_per_maneuver, max_rotation, 
+    
 
 def _render_trajectory_video(
     pipeline: Pipeline,
@@ -58,7 +70,6 @@ def _render_trajectory_video(
     seconds: float = 5.0,
     output_format: Literal["images", "video"] = "video",
     camera_type: CameraType = CameraType.PERSPECTIVE,
-    frames_per_maneuver: int = 25,
 ) -> None:
     """Helper function to create a video of the spiral trajectory.
 
@@ -159,22 +170,18 @@ def _render_trajectory_video(
                 camera_ray_bundle.metadata["directions_norm"] = camera_ray_bundle.metadata["directions_norm"].reshape(
                     norm_sh[0] * norm_sh[1], norm_sh[2]
                 )
-                # pose = batch_obj_dyn[..., :3]
-                # rotation = batch_obj_dyn[..., 3]
-                # pose[:, :, 0, 2] = pose[:, :, 0, 2]
-                # rotation[:, :, 0] = rotation[:, :, 0]
-                # batch_obj_dyn[..., :3] = pose
-                # batch_obj_dyn[..., 3] = rotation
-                # batch_obj_dyn = rotate_actor(batch_obj_dyn, actor_id=0, angle=0.3)
-                # batch_obj_dyn = translate_actor(batch_obj_dyn, actor_id=0, x_offset=0.0, y_offset=0.0, z_offset=0.0)
-                # batch_obj_dyn = delete_actor(batch_obj_dyn, actor_id=1)
-                
-                angle_per_frame = 7.0 / frames_per_maneuver
-                x_offset_per_frame = -1.5 / frames_per_maneuver
-                y_offset_per_frame = 0.0 / frames_per_maneuver
-                z_offset_per_frame = 3.0 / frames_per_maneuver
-                
+ 
                 actor_id = 2
+
+                angle_per_frame,\
+                x_offset_per_frame,\
+                y_offset_per_frame,\
+                z_offset_per_frame,\
+                max_rotation = load_modification_config(
+                    scene= "0006", 
+                    actor_id= actor_id, 
+                    type= "left_turn"
+                )
                 actor_index = get_actor_index(batch_obj_dyn, actor_id)
                 if(actor_index == -1):
                     """If the actor is not found"""
@@ -206,7 +213,7 @@ def _render_trajectory_video(
                             x_offset=x_offset_per_frame*current_maneuver_frame,
                             y_offset=y_offset_per_frame*current_maneuver_frame,
                             z_offset=z_offset_per_frame*current_maneuver_frame,
-                            max_rotation= -1.0
+                            max_rotation= max_rotation
                         )
 
                 camera_ray_bundle.metadata["object_rays_info"] = batch_obj_dyn.reshape(
