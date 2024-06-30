@@ -42,54 +42,10 @@ from safety_critical_manoeuvres import *
 
 CONSOLE = Console(width=120)
 
-
-def rotate_actor(batch_obj_dyn, actor_id, angle):
-    """
-    Rotates the actor with the given actor_id by the specified angle.
-
-    Args:
-        batch_obj_dyn (torch.Tensor): The batch object dynamics tensor.
-        actor_id (int): The ID of the actor to rotate.
-        angle (float): The angle by which to rotate the actor.
-    """
-    rotation = batch_obj_dyn[..., 3]
-    rotation[:, :, actor_id] += angle
-    batch_obj_dyn[..., 3] = rotation
-    return batch_obj_dyn
-
-def translate_actor(batch_obj_dyn, actor_id, x_offset, y_offset, z_offset):
-    """
-    Translates the actor with the given actor_id by the specified offsets.
-
-    Args:
-        batch_obj_dyn (torch.Tensor): The batch object dynamics tensor.
-        actor_id (int): The ID of the actor to translate.
-        x_offset (float): The offset to apply along the x-axis.
-        y_offset (float): The offset to apply along the y-axis.
-        z_offset (float): The offset to apply along the z-axis.
-    """
-    pose = batch_obj_dyn[..., :3]
-    pose[:, :, actor_id, 0] += x_offset
-    pose[:, :, actor_id, 1] += y_offset
-    pose[:, :, actor_id, 2] += z_offset
-    batch_obj_dyn[..., :3] = pose
-    return batch_obj_dyn
-
-def delete_actor(batch_obj_dyn, actor_id):
-    """
-    Deletes the actor with the given actor_id.
-
-    Args:
-        batch_obj_dyn (torch.Tensor): The batch object dynamics tensor.
-        actor_id (int): The ID of the actor to delete.
-    """
-    track_ids = batch_obj_dyn[..., 4]
-    track_ids[:, :, actor_id] = 0  # Assuming 0 indicates deletion
-    batch_obj_dyn[..., 4] = track_ids
-    return batch_obj_dyn
-
-
-
+def modify_actor(*args, **kwargs):
+        batch_obj_dyn = apply_left_turn(*args, **kwargs)
+        """Add necessary modifications here"""
+        return batch_obj_dyn
 
 def _render_trajectory_video(
     pipeline: Pipeline,
@@ -161,6 +117,10 @@ def _render_trajectory_video(
             if output_format == "video"
             else None
         )
+        
+        maneuver_starting_frame = None
+        maneuver_ending_frame = None
+        
         with progress:
             for frame_number, camera_idx in enumerate(progress.track(range(cameras.size), description="")):
                 # objdata = pipeline.datamanager.train_dataset.metadata["obj_info"][camera_idx].to(pipeline.device)
@@ -216,17 +176,38 @@ def _render_trajectory_video(
                 
                 actor_id = 2
                 actor_index = get_actor_index(batch_obj_dyn, actor_id)
-                if actor_index == -1:
-                    pass  # Skip if the actor is not found
+                if(actor_index == -1):
+                    """If the actor is not found"""
+                    if(maneuver_starting_frame is not None): 
+                        maneuver_starting_frame = None
+                        maneuver_ending_frame = None
+                elif(maneuver_ending_frame is not None and maneuver_ending_frame < frame_number):
+                    """maneuver should end because the current frame number is greater than maneuver_ending_frame number"""
+                    batch_obj_dyn = modify_actor(
+                            batch_obj_dyn= batch_obj_dyn, 
+                            actor_id=actor_index, 
+                            angle=-angle_per_frame*maneuver_ending_frame,
+                            x_offset=x_offset_per_frame*maneuver_ending_frame,
+                            y_offset=y_offset_per_frame*maneuver_ending_frame,
+                            z_offset=z_offset_per_frame*maneuver_ending_frame,
+                            max_rotation= -1.0
+                        )
                 else:
+                    if(maneuver_starting_frame is None):
+                        maneuver_starting_frame = frame_number
+                    
+                    current_maneuver_frame = frame_number - maneuver_starting_frame
                     print(f'Modifying actor with id == {actor_id}')
                     # Simulate left turn
-                    batch_obj_dyn = apply_left_turn(batch_obj_dyn, actor_id=actor_index, 
-                                                    angle=-angle_per_frame*frame_number,
-                                                    x_offset=x_offset_per_frame*frame_number,
-                                                    y_offset=y_offset_per_frame*frame_number,
-                                                    z_offset=z_offset_per_frame*frame_number,
-                                                    max_rotation= -1.0)
+                    batch_obj_dyn = modify_actor(
+                            batch_obj_dyn= batch_obj_dyn, 
+                            actor_id=actor_index, 
+                            angle=-angle_per_frame*current_maneuver_frame,
+                            x_offset=x_offset_per_frame*current_maneuver_frame,
+                            y_offset=y_offset_per_frame*current_maneuver_frame,
+                            z_offset=z_offset_per_frame*current_maneuver_frame,
+                            max_rotation= -1.0
+                        )
 
                 camera_ray_bundle.metadata["object_rays_info"] = batch_obj_dyn.reshape(
                     batch_obj_dyn.shape[0] * batch_obj_dyn.shape[1], batch_obj_dyn.shape[2] * batch_obj_dyn.shape[3]
