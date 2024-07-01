@@ -39,12 +39,13 @@ from nerfstudio.utils.rich_utils import ItersPerSecColumn
 from nerfstudio.viewer.server.utils import three_js_perspective_camera_focal_length
 
 from safety_critical_manoeuvres import *
-from hard_coded_configs import configs
+from hard_coded_configs import configs 
 
 CONSOLE = Console(width=120)
 
 def modify_actor(*args, **kwargs):
-        batch_obj_dyn = apply_left_turn(*args, **kwargs)
+        # batch_obj_dyn = apply_left_turn(*args, **kwargs)
+        batch_obj_dyn = apply_left_lane_shift(*args, **kwargs)
         """Add necessary modifications here"""
         return batch_obj_dyn
         
@@ -56,7 +57,7 @@ def load_modification_config(scene: str, actor_id: int, type: str):
     max_rotation = configs["scenes"][scene][actor_id][type]["max_rotation"]
     frames_per_maneuver = configs["scenes"][scene][actor_id][type]["frames_per_maneuver"]
     
-    return angle/frames_per_maneuver, x_offset/frames_per_maneuver, y_offset/frames_per_maneuver, z_offset/frames_per_maneuver, max_rotation, 
+    return angle/frames_per_maneuver, x_offset/frames_per_maneuver, y_offset/frames_per_maneuver, z_offset/frames_per_maneuver, max_rotation, frames_per_maneuver
     
 
 def _render_trajectory_video(
@@ -177,10 +178,11 @@ def _render_trajectory_video(
                 x_offset_per_frame,\
                 y_offset_per_frame,\
                 z_offset_per_frame,\
-                max_rotation = load_modification_config(
+                max_rotation, \
+                total_maneuver_frames = load_modification_config(
                     scene= "0006", 
                     actor_id= actor_id, 
-                    type= "left_turn"
+                    type= "left_lane_shift" #left_turn
                 )
                 actor_index = get_actor_index(batch_obj_dyn, actor_id)
                 if(actor_index == -1):
@@ -193,11 +195,13 @@ def _render_trajectory_video(
                     batch_obj_dyn = modify_actor(
                             batch_obj_dyn= batch_obj_dyn, 
                             actor_id=actor_index, 
-                            angle=-angle_per_frame*maneuver_ending_frame,
-                            x_offset=x_offset_per_frame*maneuver_ending_frame,
-                            y_offset=y_offset_per_frame*maneuver_ending_frame,
-                            z_offset=z_offset_per_frame*maneuver_ending_frame,
-                            max_rotation= -1.0
+                            angle_per_frame=-angle_per_frame,
+                            x_offset_per_frame=x_offset_per_frame,
+                            y_offset_per_frame=y_offset_per_frame,
+                            z_offset_per_frame=z_offset_per_frame,
+                            max_rotation= max_rotation,
+                            maneuver_frame = maneuver_ending_frame,
+                            total_frames = maneuver_ending_frame,
                         )
                 else:
                     if(maneuver_starting_frame is None):
@@ -209,11 +213,13 @@ def _render_trajectory_video(
                     batch_obj_dyn = modify_actor(
                             batch_obj_dyn= batch_obj_dyn, 
                             actor_id=actor_index, 
-                            angle=-angle_per_frame*current_maneuver_frame,
-                            x_offset=x_offset_per_frame*current_maneuver_frame,
-                            y_offset=y_offset_per_frame*current_maneuver_frame,
-                            z_offset=z_offset_per_frame*current_maneuver_frame,
-                            max_rotation= max_rotation
+                            angle_per_frame=-angle_per_frame,
+                            x_offset_per_frame=x_offset_per_frame,
+                            y_offset_per_frame=y_offset_per_frame, 
+                            z_offset_per_frame=z_offset_per_frame,
+                            max_rotation= max_rotation,
+                            maneuver_frame = current_maneuver_frame,
+                            total_frames = total_maneuver_frames,
                         )
 
                 camera_ray_bundle.metadata["object_rays_info"] = batch_obj_dyn.reshape(
@@ -447,7 +453,7 @@ class RenderTrajectory:
             output_filename=self.output_path,
             rendered_output_names=self.rendered_output_names,
             rendered_resolution_scaling_factor=1.0 / self.downscale_factor,
-            seconds=seconds,
+            seconds=seconds, 
             output_format=self.output_format,
             camera_type=camera_type,
             render_width=render_width,
