@@ -45,8 +45,8 @@ CONSOLE = Console(width=120)
 
 def modify_actor(*args, **kwargs):
         positions = None
-        # batch_obj_dyn = apply_left_turn(*args, **kwargs)
-        batch_obj_dyn = apply_lane_shift(*args, **kwargs)
+        batch_obj_dyn = apply_turn(*args, **kwargs)
+        # batch_obj_dyn = apply_lane_shift(*args, **kwargs)
         # batch_obj_dyn, positions = apply_sudden_stop(*args, **kwargs)
         """Add necessary modifications here"""
         return batch_obj_dyn, positions
@@ -183,8 +183,8 @@ def _render_trajectory_video(
                 max_rotation, \
                 total_maneuver_frames = load_modification_config(
                     scene= "0006", 
-                    actor_id= actor_id, 
-                    type= 'right_lane_shift'#"left_lane_shift" #left_turn
+                    actor_id= actor_id,  
+                    type= "left_turn"#'right_lane_shift'#"left_lane_shift" #
                 )
                 actor_index = get_actor_index(batch_obj_dyn, actor_id)
                 if(actor_index == -1):
