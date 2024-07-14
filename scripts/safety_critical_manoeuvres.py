@@ -130,21 +130,12 @@ def apply_left_lane_shift(
     # Get current rotation of the actor
     rotation = batch_obj_dyn[..., 3]
 
-    # Apply rotation and translation only if the current rotation is less than max_rotation
-    if abs(angle) < abs(max_rotation):
-        rotation[:, :, actor_id] += angle
+    # Apply rotation
+    rotation[:, :, actor_id] += angle
+    pose = batch_obj_dyn[..., :3]
+    pose[:, :, actor_id, 2] += z_offset
+    batch_obj_dyn[..., :3] = pose
 
-        pose = batch_obj_dyn[..., :3]
-        pose[:, :, actor_id, 2] += z_offset
-        batch_obj_dyn[..., :3] = pose
-    else:
-        remaining_rotation = max_rotation - rotation[:, :, actor_id].sum().item()
-        rotation[:, :, actor_id] += remaining_rotation
-        batch_obj_dyn[..., 3] = rotation
-        # Apply only z translation if maximum rotation is reached
-        pose = batch_obj_dyn[..., :3]
-        pose[:, :, actor_id, 2] += z_offset
-        batch_obj_dyn[..., :3] = pose
 
     return batch_obj_dyn
 
