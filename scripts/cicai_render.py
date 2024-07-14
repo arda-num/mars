@@ -44,10 +44,12 @@ from hard_coded_configs import configs
 CONSOLE = Console(width=120)
 
 def modify_actor(*args, **kwargs):
+        positions = None
         # batch_obj_dyn = apply_left_turn(*args, **kwargs)
         batch_obj_dyn = apply_left_lane_shift(*args, **kwargs)
+        # batch_obj_dyn, positions = apply_sudden_stop(*args, **kwargs)
         """Add necessary modifications here"""
-        return batch_obj_dyn
+        return batch_obj_dyn, positions
         
 def load_modification_config(scene: str, actor_id: int, type: str):
     angle = configs["scenes"][scene][actor_id][type]["angle"]
@@ -88,7 +90,7 @@ def _render_trajectory_video(
     """
 
     
-
+ 
     CONSOLE.print("[bold green]Creating trajectory " + output_format)
     cameras.rescale_output_resolution(rendered_resolution_scaling_factor)
     cameras = cameras.to(pipeline.device)
@@ -132,7 +134,8 @@ def _render_trajectory_video(
         
         maneuver_starting_frame = None
         maneuver_ending_frame = None
-        
+        initial_positions = None  # Initial (x, z) positions where the stop maneuver starts
+
         with progress:
             for frame_number, camera_idx in enumerate(progress.track(range(cameras.size), description="")):
                 # objdata = pipeline.datamanager.train_dataset.metadata["obj_info"][camera_idx].to(pipeline.device)
@@ -173,7 +176,6 @@ def _render_trajectory_video(
                 )
  
                 actor_id = 2
-
                 angle_per_frame,\
                 x_offset_per_frame,\
                 y_offset_per_frame,\
@@ -182,17 +184,18 @@ def _render_trajectory_video(
                 total_maneuver_frames = load_modification_config(
                     scene= "0006", 
                     actor_id= actor_id, 
-                    type= "left_lane_shift" #left_turn
+                    type= 'left_lane_shift'#"left_lane_shift" #left_turn
                 )
                 actor_index = get_actor_index(batch_obj_dyn, actor_id)
                 if(actor_index == -1):
                     """If the actor is not found"""
+                    print("Actor cannot be found!!")
                     if(maneuver_starting_frame is not None): 
                         maneuver_starting_frame = None
                         maneuver_ending_frame = None
                 elif(maneuver_ending_frame is not None and maneuver_ending_frame < frame_number):
                     """maneuver should end because the current frame number is greater than maneuver_ending_frame number"""
-                    batch_obj_dyn = modify_actor(
+                    batch_obj_dyn, initial_positions = modify_actor(
                             batch_obj_dyn= batch_obj_dyn, 
                             actor_id=actor_index, 
                             angle_per_frame=-angle_per_frame,
@@ -201,16 +204,17 @@ def _render_trajectory_video(
                             z_offset_per_frame=z_offset_per_frame,
                             max_rotation= max_rotation,
                             maneuver_frame = maneuver_ending_frame,
-                            total_frames = maneuver_ending_frame,
+                            total_frames = total_maneuver_frames,
+                            initial_positions = initial_positions
                         )
                 else:
                     if(maneuver_starting_frame is None):
                         maneuver_starting_frame = frame_number
                     
                     current_maneuver_frame = frame_number - maneuver_starting_frame
-                    print(f'Modifying actor with id == {actor_id}')
-                    # Simulate left turn
-                    batch_obj_dyn = modify_actor(
+                    # print(f'Modifying actor with id == {actor_id}')
+                    # Simulate left turn 
+                    batch_obj_dyn, initial_positions = modify_actor(
                             batch_obj_dyn= batch_obj_dyn, 
                             actor_id=actor_index, 
                             angle_per_frame=-angle_per_frame,
@@ -220,6 +224,7 @@ def _render_trajectory_video(
                             max_rotation= max_rotation,
                             maneuver_frame = current_maneuver_frame,
                             total_frames = total_maneuver_frames,
+                            initial_positions = initial_positions
                         )
 
                 camera_ray_bundle.metadata["object_rays_info"] = batch_obj_dyn.reshape(
@@ -237,6 +242,8 @@ def _render_trajectory_video(
 
                 with torch.no_grad():
                     outputs = pipeline.model.get_outputs_for_camera_ray_bundle_render(camera_ray_bundle)
+                    for x in outputs.keys():
+                        print(x) 
                 render_image = []
                 for rendered_output_name in rendered_output_names:
                     if rendered_output_name not in outputs:
@@ -286,6 +293,7 @@ def _render_trajectory_video(
                 render_image = np.concatenate(render_image, axis=1)
                 if output_format == "images":
                     media.write_image(output_image_dir / f"{camera_idx:05d}.png", render_image)
+                    print(f"image: {camera_idx:05d}.png was written!")
                 if output_format == "video" and writer is not None:
                     writer.add_image(render_image)
 
@@ -452,7 +460,7 @@ class RenderTrajectory:
             camera_path,
             output_filename=self.output_path,
             rendered_output_names=self.rendered_output_names,
-            rendered_resolution_scaling_factor=1.0 / self.downscale_factor,
+            rendered_resolution_scaling_factor=1.0 / self.downscale_factor, 
             seconds=seconds, 
             output_format=self.output_format,
             camera_type=camera_type,

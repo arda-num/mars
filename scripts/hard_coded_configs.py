@@ -15,9 +15,17 @@ configs = {
                     "x_offset": 0.0,
                     "y_offset": 0.0,
                     "z_offset": 0.6,
-                    "max_rotation": -0.6,
+                    "max_rotation": 0.35,
                     "frames_per_maneuver": 10,    
-                }
+                }, 
+                'sudden_stop': {
+                    "angle": 0.0,
+                    "x_offset": 0.0,
+                    "y_offset": 0.0,
+                    "z_offset": 0.0,
+                    "max_rotation": 0.0,
+                    "frames_per_maneuver": 5,   
+                },
             },
         }
     }
