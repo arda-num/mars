@@ -90,7 +90,7 @@ def apply_right_turn(
 
     return batch_obj_dyn
     
-def apply_left_lane_shift(
+def apply_lane_shift(
         batch_obj_dyn,
         actor_id,
         angle_per_frame,
@@ -135,7 +135,6 @@ def apply_left_lane_shift(
     pose = batch_obj_dyn[..., :3]
     pose[:, :, actor_id, 2] += z_offset
     batch_obj_dyn[..., :3] = pose
-
 
     return batch_obj_dyn
 
