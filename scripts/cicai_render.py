@@ -45,9 +45,9 @@ CONSOLE = Console(width=120)
 
 def modify_actor(*args, **kwargs):
         positions = None
-        batch_obj_dyn = apply_turn(*args, **kwargs)
-        # batch_obj_dyn = apply_lane_shift(*args, **kwargs)
-        # batch_obj_dyn, positions = apply_sudden_stop(*args, **kwargs)
+        #batch_obj_dyn = apply_turn(*args, **kwargs)
+        #batch_obj_dyn = apply_lane_shift(*args, **kwargs)
+        batch_obj_dyn, positions = apply_sudden_stop(*args, **kwargs)
         """Add necessary modifications here"""
         return batch_obj_dyn, positions
         
@@ -58,8 +58,10 @@ def load_modification_config(scene: str, actor_id: int, type: str):
     z_offset = configs["scenes"][scene][actor_id][type]["z_offset"]
     max_rotation = configs["scenes"][scene][actor_id][type]["max_rotation"]
     frames_per_maneuver = configs["scenes"][scene][actor_id][type]["frames_per_maneuver"]
+    maneuver_starting_frame = configs["scenes"][scene][actor_id][type]["maneuver_starting_frame"]
+    maneuver_ending_frame = configs["scenes"][scene][actor_id][type]["maneuver_ending_frame"]
     
-    return angle/frames_per_maneuver, x_offset/frames_per_maneuver, y_offset/frames_per_maneuver, z_offset/frames_per_maneuver, max_rotation, frames_per_maneuver
+    return angle/frames_per_maneuver, x_offset/frames_per_maneuver, y_offset/frames_per_maneuver, z_offset/frames_per_maneuver, max_rotation, frames_per_maneuver, maneuver_starting_frame, maneuver_ending_frame
     
 
 def _render_trajectory_video(
@@ -132,9 +134,10 @@ def _render_trajectory_video(
             else None
         )
         
-        maneuver_starting_frame = None
-        maneuver_ending_frame = None
-        initial_positions = None  # Initial (x, z) positions where the stop maneuver starts
+        modified_batch_obj_dyn = None
+        actors_to_modify = [2] # list of actor_ids to be modified
+        initial_positions = dict()  # Initial (x, z) positions where the stop maneuver starts
+        cached_configs = dict()
 
         with progress:
             for frame_number, camera_idx in enumerate(progress.track(range(cameras.size), description="")):
@@ -174,59 +177,104 @@ def _render_trajectory_video(
                 camera_ray_bundle.metadata["directions_norm"] = camera_ray_bundle.metadata["directions_norm"].reshape(
                     norm_sh[0] * norm_sh[1], norm_sh[2]
                 )
- 
-                actor_id = 2
-                angle_per_frame,\
-                x_offset_per_frame,\
-                y_offset_per_frame,\
-                z_offset_per_frame,\
-                max_rotation, \
-                total_maneuver_frames = load_modification_config(
-                    scene= "0006", 
-                    actor_id= actor_id,  
-                    type= "left_turn"#'right_lane_shift'#"left_lane_shift" #
-                )
-                actor_index = get_actor_index(batch_obj_dyn, actor_id)
-                if(actor_index == -1):
-                    """If the actor is not found"""
-                    print("Actor cannot be found!!")
-                    if(maneuver_starting_frame is not None): 
-                        maneuver_starting_frame = None
-                        maneuver_ending_frame = None
-                elif(maneuver_ending_frame is not None and maneuver_ending_frame < frame_number):
-                    """maneuver should end because the current frame number is greater than maneuver_ending_frame number"""
-                    batch_obj_dyn, initial_positions = modify_actor(
-                            batch_obj_dyn= batch_obj_dyn, 
-                            actor_id=actor_index, 
-                            angle_per_frame=-angle_per_frame,
-                            x_offset_per_frame=x_offset_per_frame,
-                            y_offset_per_frame=y_offset_per_frame,
-                            z_offset_per_frame=z_offset_per_frame,
-                            max_rotation= max_rotation,
-                            maneuver_frame = maneuver_ending_frame,
-                            total_frames = total_maneuver_frames,
-                            initial_positions = initial_positions
+                for actor_id in actors_to_modify:
+                    print(f"Modifying actor with id: {actor_id}")
+                    try: 
+                        angle_per_frame = cached_configs[actor_id]["angle_per_frame"]
+                        x_offset_per_frame = cached_configs[actor_id]["x_offset_per_frame"]
+                        y_offset_per_frame = cached_configs[actor_id]["y_offset_per_frame"]
+                        z_offset_per_frame = cached_configs[actor_id]["z_offset_per_frame"]
+                        max_rotation = cached_configs[actor_id]["max_rotation"]
+                        total_maneuver_frames = cached_configs[actor_id]["total_maneuver_frames"]
+                        maneuver_starting_frame = cached_configs[actor_id]["maneuver_starting_frame"]
+                        maneuver_ending_frame = cached_configs[actor_id]["maneuver_ending_frame"]
+                    except:
+                        angle_per_frame,\
+                        x_offset_per_frame,\
+                        y_offset_per_frame,\
+                        z_offset_per_frame,\
+                        max_rotation, \
+                        total_maneuver_frames, \
+                        maneuver_starting_frame, \
+                        maneuver_ending_frame = load_modification_config(
+                            scene= "0006", 
+                            actor_id= 2,  
+                            type= "sudden_stop"#'right_lane_shift'#"left_lane_shift" #
                         )
-                else:
-                    if(maneuver_starting_frame is None):
-                        maneuver_starting_frame = frame_number
+                        cached_configs[actor_id] =  {"angle_per_frame": angle_per_frame, \
+                                                    "x_offset_per_frame": x_offset_per_frame,\
+                                                    "y_offset_per_frame": y_offset_per_frame,\
+                                                    "z_offset_per_frame": z_offset_per_frame,\
+                                                    "max_rotation": max_rotation, \
+                                                    "total_maneuver_frames": total_maneuver_frames, \
+                                                    "maneuver_starting_frame": maneuver_starting_frame, \
+                                                    "maneuver_ending_frame": maneuver_ending_frame}
+                    actor_index = get_actor_index(batch_obj_dyn, actor_id)
+                    print("MEF: ", maneuver_ending_frame)
+                    print("MSF: ", maneuver_starting_frame)
+                    if(actor_index == -1):
+                        """If the actor is not found"""
+                        print("Actor cannot be found!!")
+                        continue
+                    elif(maneuver_ending_frame is not None and maneuver_ending_frame < frame_number):
+                        """maneuver should end because the current frame number is greater than maneuver_ending_frame number"""
+                        batch_obj_dyn, initial_positions = modify_actor(
+                                batch_obj_dyn= batch_obj_dyn, 
+                                modified_batch_obj_dyn = modified_batch_obj_dyn,
+                                actor_id=actor_id, 
+                                angle_per_frame=-angle_per_frame,
+                                x_offset_per_frame=x_offset_per_frame,
+                                y_offset_per_frame=y_offset_per_frame, 
+                                z_offset_per_frame=z_offset_per_frame, 
+                                max_rotation= max_rotation,
+                                maneuver_frame = maneuver_ending_frame,
+                                total_frames = total_maneuver_frames,
+                                initial_positions = initial_positions
+                            )
+                    else:
+                        if(maneuver_starting_frame is None):
+                            raise Exception("Starting frame must be initialized") 
+                        if(maneuver_ending_frame is None):
+                            cached_configs[actor_id]["maneuver_ending_frame"] = frame_number + total_maneuver_frames
+                        print("number of actors: ", batch_obj_dyn[..., 4]) 
+                        current_maneuver_frame = frame_number - maneuver_starting_frame
+                        
+                        # Simulate left turn 
+                        batch_obj_dyn, initial_positions = modify_actor(
+                                batch_obj_dyn= batch_obj_dyn, 
+                                modified_batch_obj_dyn = modified_batch_obj_dyn,
+                                actor_id=actor_id, 
+                                angle_per_frame=-angle_per_frame,
+                                x_offset_per_frame=x_offset_per_frame,
+                                y_offset_per_frame=y_offset_per_frame, 
+                                z_offset_per_frame=z_offset_per_frame,
+                                max_rotation= max_rotation,
+                                maneuver_frame = current_maneuver_frame,
+                                total_frames = total_maneuver_frames,
+                                initial_positions = initial_positions
+                            ) 
+                        
+                    modified_batch_obj_dyn = save_batch_obj_dyn(modified_batch_obj_dyn, batch_obj_dyn, actor_id)
+                        
+                            
+                    cars_behind = check_car_behind_along_x_axis(modified_batch_obj_dyn, batch_obj_dyn , actor_id)
+                    print("Cars behind: ", cars_behind)
+                    if len(cars_behind) != 0:
+                        print("There are cars behind: ", cars_behind)
+                        for car_behind in cars_behind:
+                            if car_behind not in actors_to_modify:
+                                print(f"adding actor id{car_behind}")
+                                actors_to_modify.append(car_behind)
+                                cached_configs[car_behind] = {"angle_per_frame": angle_per_frame, \
+                                                            "x_offset_per_frame": x_offset_per_frame,\
+                                                            "y_offset_per_frame": y_offset_per_frame,\
+                                                            "z_offset_per_frame": z_offset_per_frame,\
+                                                            "max_rotation": max_rotation, \
+                                                            "total_maneuver_frames": total_maneuver_frames, \
+                                                            "maneuver_starting_frame": frame_number, \
+                                                            "maneuver_ending_frame": frame_number+ maneuver_ending_frame}
+                
                     
-                    current_maneuver_frame = frame_number - maneuver_starting_frame
-                    # print(f'Modifying actor with id == {actor_id}')
-                    # Simulate left turn 
-                    batch_obj_dyn, initial_positions = modify_actor(
-                            batch_obj_dyn= batch_obj_dyn, 
-                            actor_id=actor_index, 
-                            angle_per_frame=-angle_per_frame,
-                            x_offset_per_frame=x_offset_per_frame,
-                            y_offset_per_frame=y_offset_per_frame, 
-                            z_offset_per_frame=z_offset_per_frame,
-                            max_rotation= max_rotation,
-                            maneuver_frame = current_maneuver_frame,
-                            total_frames = total_maneuver_frames,
-                            initial_positions = initial_positions
-                        )
-
                 camera_ray_bundle.metadata["object_rays_info"] = batch_obj_dyn.reshape(
                     batch_obj_dyn.shape[0] * batch_obj_dyn.shape[1], batch_obj_dyn.shape[2] * batch_obj_dyn.shape[3]
                 )
